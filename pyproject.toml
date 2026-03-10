@@ -68,6 +68,10 @@ packages = ["src/ustidnr_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests requiring live API access (deselect with '-m \"not integration\"')",
+]
+addopts = "-m 'not integration'"
 
 [tool.coverage.run]
 omit = [

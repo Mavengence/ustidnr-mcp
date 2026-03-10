@@ -1,4 +1,4 @@
-.PHONY: dev docker-up docker-down test lint fmt install build clean type-check
+.PHONY: dev docker-up docker-down test test-unit test-integration lint fmt install build clean type-check
 
 install:
 	pip install -e ".[dev]"
@@ -14,6 +14,12 @@ docker-down:
 
 test:
 	pytest --cov=ustidnr_mcp --cov-report=term-missing --cov-fail-under=95 -x -q
+
+test-unit:
+	pytest -m "not integration" --cov=ustidnr_mcp --cov-report=term-missing --cov-fail-under=95 -x -q
+
+test-integration:
+	pytest -m integration -x -q -v
 
 lint:
 	ruff check src/ tests/

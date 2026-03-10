@@ -60,7 +60,7 @@ def validate_format(vat_id: str) -> tuple[bool, str, str]:
         return False, "", f"Unknown country prefix: {normalized[:2]}"
 
     pattern = EU_VAT_FORMATS[country_code]
-    if not re.match(pattern, normalized):
+    if not re.match(pattern, normalized, re.ASCII):
         country_name = EU_COUNTRY_NAMES.get(country_code, country_code)
         return (
             False,
