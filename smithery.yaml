@@ -1,0 +1,26 @@
+name: ustidnr-mcp
+version: "0.1.0"
+description: >
+  MCP server for EU VAT ID validation (USt-IdNr) via BZSt eVatR API.
+  Simple validation, batch checking, and qualified confirmation
+  (qualifizierte Bestätigung) for §6a UStG compliance.
+author: Tim Löhr
+repository: https://github.com/Mavengence/ustidnr-mcp
+license: MIT
+
+build:
+  dockerBuildPath: docker/
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+
+commandFunction:
+  |-
+  (config) => ({
+    command: 'python',
+    args: ['-m', 'ustidnr_mcp'],
+    env: {}
+  })

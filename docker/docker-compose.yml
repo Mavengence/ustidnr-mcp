@@ -1,0 +1,10 @@
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    stdin_open: true
+    tty: true
+    environment:
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
