@@ -1,5 +1,7 @@
+# Smithery configuration: https://smithery.ai/docs/config#smitheryyaml
+
 name: ustidnr-mcp
-version: "0.1.0"
+version: "0.2.0"
 description: >
   MCP server for EU VAT ID validation (USt-IdNr) via BZSt eVatR API.
   Simple validation, batch checking, and qualified confirmation
