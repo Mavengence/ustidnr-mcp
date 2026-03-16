@@ -7,10 +7,11 @@ import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from ustidnr_mcp.bzst_client import BZStClient
 from ustidnr_mcp.config import settings
@@ -74,15 +75,19 @@ register_resources(mcp)
         openWorldHint=True,
     )
 )
-async def validate_ustidnr(vat_id: str, ctx: Context) -> str:
-    """Validiert eine EU USt-IdNr (Format + BZSt/VIES-Prüfung).
+async def validate_ustidnr(
+    vat_id: Annotated[
+        str,
+        Field(description="EU VAT ID to validate, e.g. DE123456789 or FR12345678901"),
+    ],
+    ctx: Context,
+) -> str:
+    """Validate a single EU VAT ID (format check + live BZSt/VIES API verification).
 
-    Prüft zunächst das Format, dann die Gültigkeit über die BZSt eVatR-
-    oder VIES-Schnittstelle. Für deutsche USt-IdNr wird zusätzlich die
-    Prüfziffer validiert.
-
-    Args:
-        vat_id: Die zu prüfende USt-IdNr (z.B. DE123456789, FR12345678901).
+    Checks the format against country-specific patterns for all 27 EU member states,
+    validates the German check digit (ISO/IEC 7064 MOD 11,10), then verifies the ID
+    against the VIES API. Returns structured JSON with validity status, error codes,
+    and company details when available.
     """
     normalized = normalize_vat_id(vat_id)
 
@@ -118,14 +123,24 @@ async def validate_ustidnr(vat_id: str, ctx: Context) -> str:
         openWorldHint=True,
     )
 )
-async def validate_batch(vat_ids: list[str], ctx: Context) -> str:
-    """Batch-Validierung mehrerer EU USt-IdNr (bis zu 100).
+async def validate_batch(
+    vat_ids: Annotated[
+        list[str],
+        Field(
+            description=(
+                "List of EU VAT IDs to validate, max 100."
+                " Example: ['DE123456789', 'FR12345678901', 'ATU12345678']"
+            ),
+        ),
+    ],
+    ctx: Context,
+) -> str:
+    """Batch-validate up to 100 EU VAT IDs in parallel.
 
-    Validiert alle übergebenen USt-IdNr parallel und gibt eine
-    Zusammenfassung mit Einzelergebnissen zurück.
-
-    Args:
-        vat_ids: Liste der zu prüfenden USt-IdNr (max. 100).
+    Validates all provided VAT IDs concurrently and returns a summary with
+    total/valid/invalid/error counts plus individual results for each ID.
+    Useful for checking customer lists, supplier databases, or periodic
+    compliance reviews.
     """
     if len(vat_ids) > settings.batch_max_size:
         raise BatchLimitError(requested=len(vat_ids), maximum=settings.batch_max_size)
@@ -182,32 +197,42 @@ async def validate_batch(vat_ids: list[str], ctx: Context) -> str:
     )
 )
 async def qualified_confirmation(
-    own_vat_id: str,
-    partner_vat_id: str,
-    company_name: str,
-    city: str,
-    zip_code: str,
-    street: str,
+    own_vat_id: Annotated[
+        str,
+        Field(description="Your own German VAT ID (must start with DE), e.g. DE123456789"),
+    ],
+    partner_vat_id: Annotated[
+        str,
+        Field(description="Trading partner's EU VAT ID, e.g. FR12345678901"),
+    ],
+    company_name: Annotated[
+        str,
+        Field(description="Expected company name of the trading partner"),
+    ],
+    city: Annotated[
+        str,
+        Field(description="Expected city of the trading partner"),
+    ],
+    zip_code: Annotated[
+        str,
+        Field(description="Expected postal code of the trading partner"),
+    ],
+    street: Annotated[
+        str,
+        Field(description="Expected street address of the trading partner"),
+    ],
     ctx: Context = None,  # type: ignore[assignment]
 ) -> str:
-    """Qualifizierte Bestätigung nach §6a UStG (BZSt eVatR).
+    """Qualified confirmation (qualifizierte Bestätigung) for §6a UStG compliance.
 
-    Prüft die USt-IdNr des Geschäftspartners und vergleicht Name,
-    Ort, PLZ und Straße mit den offiziellen Daten des Mitgliedstaats.
+    Verifies the trading partner's VAT ID and checks their company name, city,
+    postal code, and street against the official records of the EU member state
+    via the BZSt eVatR API. Returns match codes per field:
+    A = match, B = no match (do not ship!), C = not requested, D = not available.
 
-    Ergebniscodes pro Feld:
-    - A = Übereinstimmung
-    - B = Keine Übereinstimmung
-    - C = Nicht angefragt
-    - D = Vom Mitgliedstaat nicht unterstützt
-
-    Args:
-        own_vat_id: Eigene deutsche USt-IdNr (z.B. DE123456789).
-        partner_vat_id: USt-IdNr des Geschäftspartners.
-        company_name: Erwarteter Firmenname des Partners.
-        city: Erwarteter Ort des Partners.
-        zip_code: Erwartete PLZ des Partners.
-        street: Erwartete Straße des Partners.
+    This is the legally required proof for German businesses claiming zero-rate
+    VAT on intra-community deliveries. Creates trust protection (Vertrauensschutz)
+    under §6a Abs. 4 UStG.
     """
     # Sanitize text inputs
     company_name = sanitize_input(company_name)
@@ -272,7 +297,7 @@ async def qualified_confirmation(
 def _server_card() -> dict[str, Any]:
     """Build the MCP server card for Smithery discovery."""
     return {
-        "serverInfo": {"name": "ustidnr-mcp", "version": "0.1.0"},
+        "serverInfo": {"name": "ustidnr-mcp", "version": "0.2.0"},
         "authentication": {"required": False},
         "tools": [
             {
